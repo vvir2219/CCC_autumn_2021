@@ -350,7 +350,6 @@ def program(unparsed, environ):
 
     unparsed.need_next_token(TOKEN_START)
     if debug: print(f'start')
-    print("-- start --")
     while not unparsed.get_next_token(TOKEN_END):
         curr_statement = statement(unparsed, environ)
         commands.append(curr_statement)
