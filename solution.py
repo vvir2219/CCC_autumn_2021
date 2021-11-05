@@ -1,7 +1,3 @@
-# valid elements to parse: whitespace, strings in quotes, commas, open & closed parethesis
-# hierarchy -> "(" name [, hierarchy ...] ")"
-# name -> \"(\\.|[^\"])*\"
-
 # i will parse using "combinators", each combinator would be given a string and will return a token and the rest of the string
 # combinator --string--> (token, string)
 
@@ -16,6 +12,9 @@ WHITESPACE = re.compile(r'\s*')
 TOKEN_START = re.compile(r'start')
 TOKEN_END = re.compile(r'end')
 TOKEN_PRINT = re.compile(r'print')
+TOKEN_RETURN = re.compile(r'return')
+TOKEN_IF = re.compile(r'if')
+TOKEN_ELSE = re.compile(r'else')
 BOOLEAN = re.compile(r'true|false')
 INTEGER = re.compile(r'[1-9][0-9]*')
 ANYTHING_ELSE = re.compile(r'[^\s]+')
@@ -75,7 +74,19 @@ class ParseableString:
         self._value = match[1]
         return match[0]
 
-def print_statement(unparsed):
+    def peek_next_token(self, token_re, skip_whitespace=True):
+        if skip_whitespace: self.skip_whitespace()
+
+        return bool(parse_token(self._value, token_re, error_on_no_match=False))
+
+def execute_statements(commands):
+    for f, args in commands:
+        f(args)
+
+def print_statement(unparsed, peek=False):
+    if peek:
+        return unparsed.peek_next_token(TOKEN_PRINT)
+
     unparsed.need_next_token(TOKEN_PRINT)
     token = unparsed.get_next_token(BOOLEAN)
     if token is None:
@@ -86,21 +97,80 @@ def print_statement(unparsed):
 
     return (lambda args: print(args[0], end=""), [token])
 
+def return_statement(unparsed, peek=False):
+    if peek:
+        return unparsed.peek_next_token(TOKEN_RETURN)
+
+    unparsed.need_next_token(TOKEN_RETURN)
+    token = unparsed.get_next_token(BOOLEAN)
+    if token is None:
+        token = unparsed.get_next_token(INTEGER)
+
+    if token is None:
+        token = unparsed.get_next_token(ANYTHING_ELSE)
+
+    return (lambda args: args, end=""), [token])
+
+def first_statement(unparsed, parsers):
+    for parser in parsers:
+        if parser(unparsed, peek=True):
+            return parser(unparsed)
+
+
+def if_statement(unparsed, peek=False):
+    if peek:
+        return unparsed.peek_next_token(TOKEN_IF)
+
+    boolean = None
+    main_branch = []
+    alternative_branch = []
+
+    parsers = [print_statement, return_statement]
+
+    unparsed.need_next_token(TOKEN_IF)
+    token = unparsed.need_next_token(BOOLEAN); boolean = True if token == "true" else False
+    while not unparsed.get_next_token(TOKEN_END):
+        main_branch.append(first_statement(unparsed, parsers))
+
+    unparsed.need_next_token(TOKEN_ELSE)
+    token = unparsed.need_next_token(BOOLEAN); boolean = True if token == "true" else False
+    while not unparsed.get_next_token(TOKEN_END):
+        alternative_branch.append(first_statement(unparsed, parsers))
+    
+    return (lambda args: if boolean: execute_statements(main_branch) else execute_statements(alternative_branch), [])
+
+
+def statement(unparsed):
+    parsers = [print_statement, return_statement, if_statement]
+    return first_statement(unparsed, parsers)
 
 def program(unparsed):
     commands = []
 
     unparsed.need_next_token(TOKEN_START)
     while not unparsed.get_next_token(TOKEN_END):
-        commands.append(print_statement(unparsed))
+        commands.append(statement(unparsed))
 
     return commands
 
-def execute_program(commands):
-    for f, args in commands:
-        f(args)
+
+
+## read code
+def read_code(filename):
+    with open(filename, 'r') as f:
+        n = int(f.readline().strip())
+        code = f.read()
+
+    return n, code
+
+def run(lvl, no):
+    n, code = read_code(f'./level{lvl}/level{lvl}_{no}.in')
+
+    commands = program(ParseableString(code))
+    execute_statements(commands)
+
+
+from sys import argv
 
 if __name__ == "__main__":
-    input_string = 'start print is print this print the print matrix end'
-
-    execute_program(program(ParseableString(input_string)))
+    run(1, argv[2])
