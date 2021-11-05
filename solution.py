@@ -7,6 +7,8 @@
 
 import re
 
+debug = True
+
 # token regular expressions
 WHITESPACE = re.compile(r'\s*')
 TOKEN_START = re.compile(r'start')
@@ -27,11 +29,18 @@ ALL_TOKENS = [
         INTEGER
 ]
 
+PRINT_STATEMENT = 1;
+RETURN_STATEMENT = 2;
+IF_STATEMENT = 3;
+
 
 COMMA = re.compile(r',')
 OPEN_PAREN = re.compile(r'\(')
 CLOSED_PAREN = re.compile(r'\)')
 STRING = re.compile(r'"(\\.|[^"])*"')
+
+def statement_type(s):
+    return s[2]
 
 # string -> (token, string)
 # or None or Error (depends on flag)
@@ -80,7 +89,7 @@ class ParseableString:
         return bool(parse_token(self._value, token_re, error_on_no_match=False))
 
 def execute_statements(commands):
-    for f, args in commands:
+    for f, args, _ in commands:
         f(args)
 
 def print_statement(unparsed, peek=False):
@@ -95,7 +104,8 @@ def print_statement(unparsed, peek=False):
     if token is None:
         token = unparsed.get_next_token(ANYTHING_ELSE)
 
-    return (lambda args: print(args[0], end=""), [token])
+    if debug: print(f'print {token}');
+    return (lambda args: print(args[0], end=""), [token], PRINT_STATEMENT)
 
 def return_statement(unparsed, peek=False):
     if peek:
@@ -109,7 +119,8 @@ def return_statement(unparsed, peek=False):
     if token is None:
         token = unparsed.get_next_token(ANYTHING_ELSE)
 
-    return (lambda args: args, [token])
+    print(f'return {token}')
+    return (lambda args: args, [token], RETURN_STATEMENT)
 
 def first_statement(unparsed, parsers):
     for parser in parsers:
@@ -125,19 +136,42 @@ def if_statement(unparsed, peek=False):
     main_branch = []
     alternative_branch = []
 
+    return_encountered = False
+
     parsers = [print_statement, return_statement]
 
     unparsed.need_next_token(TOKEN_IF)
+
+
     token = unparsed.need_next_token(BOOLEAN); boolean = True if token == "true" else False
+    if debug: print(f'if {token}')
+
     while not unparsed.get_next_token(TOKEN_END):
-        main_branch.append(first_statement(unparsed, parsers))
+        curr_statement = first_statement(unparsed, parsers)
+        if statement_type(curr_statement) == RETURN_STATEMENT:
+            return_encountered = True
+
+        if not return_encountered:
+            main_branch.append(curr_statement)
+    if debug: print(f'end')
 
     unparsed.need_next_token(TOKEN_ELSE)
-    token = unparsed.need_next_token(BOOLEAN); boolean = True if token == "true" else False
+    if debug: print(f'else')
     while not unparsed.get_next_token(TOKEN_END):
-        alternative_branch.append(first_statement(unparsed, parsers))
+        curr_statement = first_statement(unparsed, parsers)
+        if statement_type(curr_statement) == RETURN_STATEMENT:
+            return_encountered = True
+
+        if not return_encountered:
+            alternative_branch.append(curr_statement)
+    if debug: print(f'end')
+
     
-    return (lambda args: execute_statements(main_branch) if boolean else execute_statements(alternative_branch), [])
+    return (lambda args: 
+            execute_statements(main_branch) if boolean else 
+            execute_statements(alternative_branch)
+            , []
+            , IF_STATEMENT)
 
 
 def statement(unparsed):
@@ -146,13 +180,20 @@ def statement(unparsed):
 
 def program(unparsed):
     commands = []
+    return_encountered = False
 
     unparsed.need_next_token(TOKEN_START)
+    if debug: print(f'start')
     while not unparsed.get_next_token(TOKEN_END):
-        commands.append(statement(unparsed))
+        curr_statement = statement(unparsed)
+        if statement_type(curr_statement) == RETURN_STATEMENT:
+            return_encountered = True
+
+        if not return_encountered:
+            commands.append(curr_statement)
+    if debug: print(f'end')
 
     return commands
-
 
 
 ## read code
