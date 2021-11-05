@@ -109,7 +109,7 @@ def return_statement(unparsed, peek=False):
     if token is None:
         token = unparsed.get_next_token(ANYTHING_ELSE)
 
-    return (lambda args: args, end=""), [token])
+    return (lambda args: args, [token])
 
 def first_statement(unparsed, parsers):
     for parser in parsers:
@@ -137,7 +137,7 @@ def if_statement(unparsed, peek=False):
     while not unparsed.get_next_token(TOKEN_END):
         alternative_branch.append(first_statement(unparsed, parsers))
     
-    return (lambda args: if boolean: execute_statements(main_branch) else execute_statements(alternative_branch), [])
+    return (lambda args: execute_statements(main_branch) if boolean else execute_statements(alternative_branch), [])
 
 
 def statement(unparsed):
@@ -173,4 +173,4 @@ def run(lvl, no):
 from sys import argv
 
 if __name__ == "__main__":
-    run(1, argv[2])
+    run(2, argv[1])
