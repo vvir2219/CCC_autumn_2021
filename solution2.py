@@ -371,9 +371,9 @@ def run(lvl, no):
     n, code = read_code(f'./level{lvl}/level{lvl}_{no}.in')
     unparsed = ParseableString(code)
 
-    while len(unparsed.string()) > 0:
-        print(unparsed.string())
-        input("Press any key ...")
+    while unparsed.peek_next_token(TOKEN_START):
+        # print(unparsed.string())
+        # input("Press any key ...")
         environ = {}
         commands = program(unparsed, environ)
 
