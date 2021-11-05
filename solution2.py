@@ -379,6 +379,7 @@ def run(lvl, no):
         commands = program(unparsed, environ)
 
         if debug: print("Execution: \n\n")
+        print("")
         if not debug: execute_statements(commands)
 
 
