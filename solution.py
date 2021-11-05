@@ -105,7 +105,8 @@ def print_statement(unparsed, peek=False):
         token = unparsed.get_next_token(ANYTHING_ELSE)
 
     if debug: print(f'print {token}');
-    return (lambda args: print(args[0], end=""), [token], PRINT_STATEMENT)
+    end = "" if not debug else "\n"
+    return (lambda args: print(args[0], end=end), [token], PRINT_STATEMENT)
 
 def return_statement(unparsed, peek=False):
     if peek:
@@ -119,7 +120,7 @@ def return_statement(unparsed, peek=False):
     if token is None:
         token = unparsed.get_next_token(ANYTHING_ELSE)
 
-    print(f'return {token}')
+    if debug: print(f'return {token}')
     return (lambda args: args, [token], RETURN_STATEMENT)
 
 def first_statement(unparsed, parsers):
@@ -208,7 +209,9 @@ def run(lvl, no):
     n, code = read_code(f'./level{lvl}/level{lvl}_{no}.in')
 
     commands = program(ParseableString(code))
-    execute_statements(commands)
+
+    if debug: print("Execution: ")
+    if not debug: execute_statements(commands)
 
 
 from sys import argv
